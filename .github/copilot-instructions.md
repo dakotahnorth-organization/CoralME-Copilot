@@ -42,10 +42,10 @@ src/
 ## Coding Guidelines
 
 ### License Headers
-**ALWAYS** include the Apache 2.0 license header in new Java files:
+**ALWAYS** include the Apache 2.0 license header in new Java files (update year range to current year):
 ```java
 /*
- * Copyright (c) 2015-2025 CoralBlocks LLC - http://www.coralblocks.com
+ * Copyright 2015-2024 (c) CoralBlocks LLC - http://www.coralblocks.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ The OrderBookListener interface provides callbacks for:
 - **NEVER** introduce garbage collection in the core matching path
 - **NEVER** remove or modify existing tests without understanding their purpose
 - **NEVER** change public APIs without considering backward compatibility
-- **AVOID** using Java streams in performance-critical code (creates garbage)
+- **AVOID** using Java streams in hot paths (order matching, execution) - while modern JVMs optimize streams well, this codebase prioritizes zero-garbage guarantees
 - **AVOID** string operations in hot paths
 - **DO NOT** add logging to the core order matching logic (use callbacks instead)
 
