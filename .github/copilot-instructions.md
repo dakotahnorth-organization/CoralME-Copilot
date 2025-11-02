@@ -42,7 +42,7 @@ src/
 ## Coding Guidelines
 
 ### License Headers
-**ALWAYS** include the Apache 2.0 license header in new Java files (update year range to current year):
+**ALWAYS** include the Apache 2.0 license header in new Java files as specified in CONTRIBUTING.md:
 ```java
 /*
  * Copyright 2015-2024 (c) CoralBlocks LLC - http://www.coralblocks.com
