@@ -52,7 +52,11 @@ public class NoGCTest {
 			
 			double durationSeconds = (endTimeNanos - startTimeNanos) / 1_000_000_000.0;
 			System.out.println("Execution Time: " + String.format("%.3f", durationSeconds) + " seconds");
-			System.out.println("Throughput: " + String.format("%.0f", iterations / durationSeconds) + " iterations/second");
+			if (durationSeconds > 0) {
+				System.out.println("Throughput: " + String.format("%.0f", iterations / durationSeconds) + " iterations/second");
+			} else {
+				System.out.println("Throughput: N/A (execution time too short to measure)");
+			}
 			System.out.println();
 			
 			double startMemoryMB = startMemoryBytes / (1024.0 * 1024.0);
@@ -75,9 +79,15 @@ public class NoGCTest {
 			sb.append("\n");
 			sb.append("iterations=").append(iterations).append("\n");
 			sb.append("garbage_creation_enabled=").append(createdGarbage).append("\n");
-			sb.append("execution_time_nanos=").append(endTimeNanos - startTimeNanos).append("\n");
-			sb.append("execution_time_seconds=").append(String.format("%.3f", (endTimeNanos - startTimeNanos) / 1_000_000_000.0)).append("\n");
-			sb.append("throughput_iterations_per_second=").append(String.format("%.0f", iterations / ((endTimeNanos - startTimeNanos) / 1_000_000_000.0))).append("\n");
+			long durationNanos = endTimeNanos - startTimeNanos;
+			sb.append("execution_time_nanos=").append(durationNanos).append("\n");
+			double durationSeconds = durationNanos / 1_000_000_000.0;
+			sb.append("execution_time_seconds=").append(String.format("%.3f", durationSeconds)).append("\n");
+			if (durationSeconds > 0) {
+				sb.append("throughput_iterations_per_second=").append(String.format("%.0f", iterations / durationSeconds)).append("\n");
+			} else {
+				sb.append("throughput_iterations_per_second=N/A\n");
+			}
 			sb.append("start_memory_bytes=").append(startMemoryBytes).append("\n");
 			sb.append("end_memory_bytes=").append(endMemoryBytes).append("\n");
 			sb.append("peak_memory_bytes=").append(peakMemoryBytes).append("\n");
@@ -129,7 +139,11 @@ public class NoGCTest {
 		// Collect initial memory state
 		Runtime runtime = Runtime.getRuntime();
 		System.gc(); // Suggest GC before measurement to get clean baseline
-		try { Thread.sleep(100); } catch (InterruptedException e) {} // Give GC time to complete
+		try { 
+			Thread.sleep(100); 
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt(); // Restore interrupt status
+		}
 		metrics.startMemoryBytes = runtime.totalMemory() - runtime.freeMemory();
 		metrics.peakMemoryBytes = metrics.startMemoryBytes;
 		
