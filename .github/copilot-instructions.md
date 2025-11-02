@@ -11,7 +11,7 @@ CoralME is a simple, fast, and garbage-free matching engine order book for elect
 ## Development Environment
 
 ### Build System
-- **Build Tool**: Maven (version 17+)
+- **Build Tool**: Maven 3.8+
 - **Java Version**: Java 17
 - **Build Command**: `mvn clean compile`
 - **Package Command**: `mvn clean package`
@@ -45,7 +45,7 @@ src/
 **ALWAYS** include the Apache 2.0 license header in new Java files:
 ```java
 /*
- * Copyright (c) 2015-2024 CoralBlocks LLC - http://www.coralblocks.com
+ * Copyright (c) 2015-2025 CoralBlocks LLC - http://www.coralblocks.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
