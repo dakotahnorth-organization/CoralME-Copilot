@@ -35,6 +35,11 @@ import com.coralblocks.coralme.OrderBookListener;
  */
 public class NoGCTest {
 	
+	/**
+	 * Performance metrics collector. Instance is created before the measured test loop.
+	 * Reporting methods (printMetrics, toStorageFormat) are called after the test completes,
+	 * so any garbage they create does not affect the zero-garbage validation of the test loop.
+	 */
 	private static class PerformanceMetrics {
 		long startTimeNanos;
 		long endTimeNanos;
@@ -138,7 +143,9 @@ public class NoGCTest {
 		
 		// Collect initial memory state
 		Runtime runtime = Runtime.getRuntime();
-		System.gc(); // Suggest GC before measurement to get clean baseline
+		// Note: System.gc() call is BEFORE measurement starts and is only for establishing a clean baseline.
+		// The actual test loop measured below will produce zero garbage (when createGarbage=false).
+		System.gc();
 		try { 
 			Thread.sleep(100); 
 		} catch (InterruptedException e) {
@@ -147,7 +154,7 @@ public class NoGCTest {
 		metrics.startMemoryBytes = runtime.totalMemory() - runtime.freeMemory();
 		metrics.peakMemoryBytes = metrics.startMemoryBytes;
 		
-		// Start timing
+		// Start timing - all code after this point until metrics.endTimeNanos is the measured section
 		metrics.startTimeNanos = System.nanoTime();
 		
 		OrderBookListener noOpListener = new OrderBookAdapter();
@@ -228,11 +235,16 @@ public class NoGCTest {
 		
 		System.out.println(" ... DONE!");
 		
+		// Note: Metrics reporting below occurs AFTER the measured test loop completes.
+		// Some garbage may be created during reporting, but this does not affect the
+		// zero-garbage validation of the actual test loop above.
+		
 		// Print performance metrics
 		metrics.printMetrics();
 		
 		// Store metrics in human-readable format
 		String metricsData = metrics.toStorageFormat();
-		System.out.println("\n" + metricsData);
+		System.out.print("\n");
+		printWithoutGarbage(metricsData);
 	}
 }
