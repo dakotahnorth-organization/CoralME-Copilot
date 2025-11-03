@@ -30,8 +30,97 @@ import com.coralblocks.coralme.OrderBookListener;
  * <p>You should also decrease the max size of your heap memory so that if the GC has to kick in, it will do it sooner than later.</p>
  * 
  * <p>A good command-line example is:  <b><code>java -verbose:gc -Xms128m -Xmx256m -cp target/classes com.coralblocks.coralme.example.NoGCTest</code></b></p>
+ * 
+ * <p>This test also measures and reports performance metrics including execution time and memory usage for before/after comparison.</p>
  */
 public class NoGCTest {
+	
+	/**
+	 * Performance metrics collector. Instance is created before the measured test loop.
+	 * Reporting methods (printMetrics, toStorageFormat) are called after the test completes,
+	 * so any garbage they create does not affect the zero-garbage validation of the test loop.
+	 */
+	private static class PerformanceMetrics {
+		private static final int OPERATIONS_PER_ITERATION = 24; // Number of order/book operations per iteration
+		
+		long startTimeNanos;
+		long endTimeNanos;
+		long startMemoryBytes;
+		long endMemoryBytes;
+		long peakMemoryBytes;
+		int iterations;
+		boolean createdGarbage;
+		
+		void printMetrics() {
+			System.out.println("\n================== Performance Metrics ==================");
+			System.out.println("Iterations: " + iterations);
+			System.out.println("Garbage Creation Enabled: " + createdGarbage);
+			System.out.println();
+			
+			long durationNanos = endTimeNanos - startTimeNanos;
+			double durationSeconds = durationNanos / 1_000_000_000.0;
+			System.out.println("Execution Time: " + String.format("%.3f", durationSeconds) + " seconds");
+			if (durationSeconds > 0) {
+				System.out.println("Throughput: " + String.format("%.0f", iterations / durationSeconds) + " iterations/second");
+			} else {
+				System.out.println("Throughput: N/A (execution time too short to measure)");
+			}
+			
+			// Average time per operation
+			long totalOperations = (long) iterations * OPERATIONS_PER_ITERATION;
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				System.out.println("Average Time per Operation: " + String.format("%.2f", avgNanosPerOperation) + " nanoseconds");
+			} else {
+				System.out.println("Average Time per Operation: N/A");
+			}
+			System.out.println();
+			
+			double startMemoryMB = startMemoryBytes / (1024.0 * 1024.0);
+			double endMemoryMB = endMemoryBytes / (1024.0 * 1024.0);
+			double peakMemoryMB = peakMemoryBytes / (1024.0 * 1024.0);
+			double memoryDeltaMB = endMemoryMB - startMemoryMB;
+			
+			System.out.println("Memory Usage:");
+			System.out.println("  Start: " + String.format("%.2f", startMemoryMB) + " MB");
+			System.out.println("  End: " + String.format("%.2f", endMemoryMB) + " MB");
+			System.out.println("  Peak: " + String.format("%.2f", peakMemoryMB) + " MB");
+			System.out.println("  Delta: " + String.format("%.2f", memoryDeltaMB) + " MB");
+			System.out.println("========================================================");
+		}
+		
+		String toStorageFormat() {
+			StringBuilder sb = new StringBuilder();
+			sb.append("# NoGCTest Performance Metrics\n");
+			sb.append("# Generated at: ").append(System.currentTimeMillis()).append("\n");
+			sb.append("\n");
+			sb.append("iterations=").append(iterations).append("\n");
+			sb.append("garbage_creation_enabled=").append(createdGarbage).append("\n");
+			long durationNanos = endTimeNanos - startTimeNanos;
+			sb.append("execution_time_nanos=").append(durationNanos).append("\n");
+			double durationSeconds = durationNanos / 1_000_000_000.0;
+			sb.append("execution_time_seconds=").append(String.format("%.3f", durationSeconds)).append("\n");
+			if (durationSeconds > 0) {
+				sb.append("throughput_iterations_per_second=").append(String.format("%.0f", iterations / durationSeconds)).append("\n");
+			} else {
+				sb.append("throughput_iterations_per_second=N/A\n");
+			}
+			long totalOperations = (long) iterations * OPERATIONS_PER_ITERATION;
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				sb.append("average_nanoseconds_per_operation=").append(String.format("%.2f", avgNanosPerOperation)).append("\n");
+			} else {
+				sb.append("average_nanoseconds_per_operation=N/A\n");
+			}
+			sb.append("operations_per_iteration=").append(OPERATIONS_PER_ITERATION).append("\n");
+			sb.append("total_operations=").append(totalOperations).append("\n");
+			sb.append("start_memory_bytes=").append(startMemoryBytes).append("\n");
+			sb.append("end_memory_bytes=").append(endMemoryBytes).append("\n");
+			sb.append("peak_memory_bytes=").append(peakMemoryBytes).append("\n");
+			sb.append("memory_delta_bytes=").append(endMemoryBytes - startMemoryBytes).append("\n");
+			return sb.toString();
+		}
+	}
 	
 	private static final long CLIENT_ID = 1002L;
 
@@ -68,6 +157,27 @@ public class NoGCTest {
 		boolean createGarbage = args.length >= 1 ? Boolean.parseBoolean(args[0]) : false;
 		int iterations = args.length >= 2 ? Integer.parseInt(args[1]) : 1000000;
 		
+		// Initialize performance metrics
+		PerformanceMetrics metrics = new PerformanceMetrics();
+		metrics.iterations = iterations;
+		metrics.createdGarbage = createGarbage;
+		
+		// Collect initial memory state
+		Runtime runtime = Runtime.getRuntime();
+		// Note: System.gc() call is BEFORE measurement starts and is only for establishing a clean baseline.
+		// The actual test loop measured below will produce zero garbage (when createGarbage=false).
+		System.gc();
+		try { 
+			Thread.sleep(100); 
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt(); // Restore interrupt status
+		}
+		metrics.startMemoryBytes = runtime.totalMemory() - runtime.freeMemory();
+		metrics.peakMemoryBytes = metrics.startMemoryBytes;
+		
+		// Start timing - all code after this point until metrics.endTimeNanos is the measured section
+		metrics.startTimeNanos = System.nanoTime();
+		
 		OrderBookListener noOpListener = new OrderBookAdapter();
 		
 		OrderBook book = new OrderBook("AAPL", noOpListener);
@@ -75,6 +185,14 @@ public class NoGCTest {
 		for(int i = 1; i <= iterations; i++) {
 			
 			printIteration(i);
+			
+			// Track peak memory usage periodically (every 10000 iterations to minimize overhead)
+			if (i % 10000 == 0) {
+				long currentMemory = runtime.totalMemory() - runtime.freeMemory();
+				if (currentMemory > metrics.peakMemoryBytes) {
+					metrics.peakMemoryBytes = currentMemory;
+				}
+			}
 			
 			// Bids:
 			book.createLimit(CLIENT_ID, getClientOrderId(),  orderId++,  Side.BUY, 1000, 100.00, TimeInForce.DAY);
@@ -127,6 +245,27 @@ public class NoGCTest {
 			if (!book.isEmpty()) throw new IllegalStateException("Book must be empty here!");
 		}
 		
+		// End timing and collect final memory state
+		metrics.endTimeNanos = System.nanoTime();
+		metrics.endMemoryBytes = runtime.totalMemory() - runtime.freeMemory();
+		
+		// Update peak if final memory is higher
+		if (metrics.endMemoryBytes > metrics.peakMemoryBytes) {
+			metrics.peakMemoryBytes = metrics.endMemoryBytes;
+		}
+		
 		System.out.println(" ... DONE!");
+		
+		// Note: Metrics reporting below occurs AFTER the measured test loop completes.
+		// Some garbage may be created during reporting, but this does not affect the
+		// zero-garbage validation of the actual test loop above.
+		
+		// Print performance metrics
+		metrics.printMetrics();
+		
+		// Store metrics in human-readable format
+		String metricsData = metrics.toStorageFormat();
+		System.out.print("\n");
+		printWithoutGarbage(metricsData);
 	}
 }
