@@ -37,10 +37,12 @@ public class NoGCTest {
 	
 	/**
 	 * Performance metrics collector. Instance is created before the measured test loop.
-	 * Reporting methods (printMetrics, toStorageFormat) are called after the test completes,
+	 * Reporting methods (printMetrics, buildMetricsString) are called after the test completes,
 	 * so any garbage they create does not affect the zero-garbage validation of the test loop.
 	 */
 	private static class PerformanceMetrics {
+		private static final int OPERATIONS_PER_ITERATION = 24; // Number of order/book operations per iteration
+		
 		long startTimeNanos;
 		long endTimeNanos;
 		long startMemoryBytes;
@@ -50,53 +52,78 @@ public class NoGCTest {
 		boolean createdGarbage;
 		
 		void printMetrics() {
-			System.out.println("\n================== Performance Metrics ==================");
-			System.out.println("Iterations: " + iterations);
-			System.out.println("Garbage Creation Enabled: " + createdGarbage);
-			System.out.println();
+			String metricsString = buildMetricsString();
+			System.out.print("\n");
+			printWithoutGarbage(metricsString);
+		}
+		
+		String buildMetricsString() {
+			StringBuilder sb = new StringBuilder();
 			
-			double durationSeconds = (endTimeNanos - startTimeNanos) / 1_000_000_000.0;
-			System.out.println("Execution Time: " + String.format("%.3f", durationSeconds) + " seconds");
+			// Human-readable section
+			sb.append("================== Performance Metrics ==================\n");
+			sb.append("Iterations: ").append(iterations).append("\n");
+			sb.append("Garbage Creation Enabled: ").append(createdGarbage).append("\n");
+			sb.append("\n");
+			
+			long durationNanos = endTimeNanos - startTimeNanos;
+			double durationSeconds = durationNanos / 1_000_000_000.0;
+			sb.append("Execution Time: ").append(String.format("%.3f", durationSeconds)).append(" seconds\n");
 			if (durationSeconds > 0) {
-				System.out.println("Throughput: " + String.format("%.0f", iterations / durationSeconds) + " iterations/second");
+				sb.append("Throughput: ").append(String.format("%.0f", iterations / durationSeconds)).append(" iterations/second\n");
 			} else {
-				System.out.println("Throughput: N/A (execution time too short to measure)");
+				sb.append("Throughput: N/A (execution time too short to measure)\n");
 			}
-			System.out.println();
+			
+			// Average time per operation
+			long totalOperations = (long) iterations * OPERATIONS_PER_ITERATION;
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				sb.append("Average Time per Operation: ").append(String.format("%.2f", avgNanosPerOperation)).append(" nanoseconds\n");
+			} else {
+				sb.append("Average Time per Operation: N/A\n");
+			}
+			sb.append("\n");
 			
 			double startMemoryMB = startMemoryBytes / (1024.0 * 1024.0);
 			double endMemoryMB = endMemoryBytes / (1024.0 * 1024.0);
 			double peakMemoryMB = peakMemoryBytes / (1024.0 * 1024.0);
 			double memoryDeltaMB = endMemoryMB - startMemoryMB;
 			
-			System.out.println("Memory Usage:");
-			System.out.println("  Start: " + String.format("%.2f", startMemoryMB) + " MB");
-			System.out.println("  End: " + String.format("%.2f", endMemoryMB) + " MB");
-			System.out.println("  Peak: " + String.format("%.2f", peakMemoryMB) + " MB");
-			System.out.println("  Delta: " + String.format("%.2f", memoryDeltaMB) + " MB");
-			System.out.println("========================================================");
-		}
-		
-		String toStorageFormat() {
-			StringBuilder sb = new StringBuilder();
+			sb.append("Memory Usage:\n");
+			sb.append("  Start: ").append(String.format("%.2f", startMemoryMB)).append(" MB\n");
+			sb.append("  End: ").append(String.format("%.2f", endMemoryMB)).append(" MB\n");
+			sb.append("  Peak: ").append(String.format("%.2f", peakMemoryMB)).append(" MB\n");
+			sb.append("  Delta: ").append(String.format("%.2f", memoryDeltaMB)).append(" MB\n");
+			sb.append("========================================================\n");
+			
+			// Machine-parseable section
+			sb.append("\n");
 			sb.append("# NoGCTest Performance Metrics\n");
 			sb.append("# Generated at: ").append(System.currentTimeMillis()).append("\n");
 			sb.append("\n");
 			sb.append("iterations=").append(iterations).append("\n");
 			sb.append("garbage_creation_enabled=").append(createdGarbage).append("\n");
-			long durationNanos = endTimeNanos - startTimeNanos;
 			sb.append("execution_time_nanos=").append(durationNanos).append("\n");
-			double durationSeconds = durationNanos / 1_000_000_000.0;
 			sb.append("execution_time_seconds=").append(String.format("%.3f", durationSeconds)).append("\n");
 			if (durationSeconds > 0) {
 				sb.append("throughput_iterations_per_second=").append(String.format("%.0f", iterations / durationSeconds)).append("\n");
 			} else {
 				sb.append("throughput_iterations_per_second=N/A\n");
 			}
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				sb.append("average_nanoseconds_per_operation=").append(String.format("%.2f", avgNanosPerOperation)).append("\n");
+			} else {
+				sb.append("average_nanoseconds_per_operation=N/A\n");
+			}
+			sb.append("operations_per_iteration=").append(OPERATIONS_PER_ITERATION).append("\n");
+			sb.append("total_operations=").append(totalOperations).append("\n");
 			sb.append("start_memory_bytes=").append(startMemoryBytes).append("\n");
 			sb.append("end_memory_bytes=").append(endMemoryBytes).append("\n");
 			sb.append("peak_memory_bytes=").append(peakMemoryBytes).append("\n");
 			sb.append("memory_delta_bytes=").append(endMemoryBytes - startMemoryBytes).append("\n");
+			
 			return sb.toString();
 		}
 	}
@@ -241,10 +268,5 @@ public class NoGCTest {
 		
 		// Print performance metrics
 		metrics.printMetrics();
-		
-		// Store metrics in human-readable format
-		String metricsData = metrics.toStorageFormat();
-		System.out.print("\n");
-		printWithoutGarbage(metricsData);
 	}
 }
