@@ -41,6 +41,8 @@ public class NoGCTest {
 	 * so any garbage they create does not affect the zero-garbage validation of the test loop.
 	 */
 	private static class PerformanceMetrics {
+		private static final int OPERATIONS_PER_ITERATION = 24; // Number of order/book operations per iteration
+		
 		long startTimeNanos;
 		long endTimeNanos;
 		long startMemoryBytes;
@@ -55,12 +57,22 @@ public class NoGCTest {
 			System.out.println("Garbage Creation Enabled: " + createdGarbage);
 			System.out.println();
 			
-			double durationSeconds = (endTimeNanos - startTimeNanos) / 1_000_000_000.0;
+			long durationNanos = endTimeNanos - startTimeNanos;
+			double durationSeconds = durationNanos / 1_000_000_000.0;
 			System.out.println("Execution Time: " + String.format("%.3f", durationSeconds) + " seconds");
 			if (durationSeconds > 0) {
 				System.out.println("Throughput: " + String.format("%.0f", iterations / durationSeconds) + " iterations/second");
 			} else {
 				System.out.println("Throughput: N/A (execution time too short to measure)");
+			}
+			
+			// Average time per operation
+			long totalOperations = (long) iterations * OPERATIONS_PER_ITERATION;
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				System.out.println("Average Time per Operation: " + String.format("%.2f", avgNanosPerOperation) + " nanoseconds");
+			} else {
+				System.out.println("Average Time per Operation: N/A");
 			}
 			System.out.println();
 			
@@ -93,6 +105,15 @@ public class NoGCTest {
 			} else {
 				sb.append("throughput_iterations_per_second=N/A\n");
 			}
+			long totalOperations = (long) iterations * OPERATIONS_PER_ITERATION;
+			if (totalOperations > 0 && durationNanos > 0) {
+				double avgNanosPerOperation = (double) durationNanos / totalOperations;
+				sb.append("average_nanoseconds_per_operation=").append(String.format("%.2f", avgNanosPerOperation)).append("\n");
+			} else {
+				sb.append("average_nanoseconds_per_operation=N/A\n");
+			}
+			sb.append("operations_per_iteration=").append(OPERATIONS_PER_ITERATION).append("\n");
+			sb.append("total_operations=").append(totalOperations).append("\n");
 			sb.append("start_memory_bytes=").append(startMemoryBytes).append("\n");
 			sb.append("end_memory_bytes=").append(endMemoryBytes).append("\n");
 			sb.append("peak_memory_bytes=").append(peakMemoryBytes).append("\n");
