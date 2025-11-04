@@ -234,9 +234,11 @@ public class CacheLineOptimizationTest {
 		
 		int coldFieldIndex = actualFields.indexOf(coldField);
 		
-		// Security field should be positioned after the 8 hot fields
-		assertTrue("Cold field 'security' should be positioned after hot fields (index > 7). " +
+		// Security field must exist and should be positioned after the 8 hot fields
+		assertTrue("Cold field 'security' must exist in PriceLevel class",
+				   coldFieldIndex >= 0);
+		assertTrue("Cold field 'security' should be positioned after hot fields (index >= 8). " +
 				   "Actual index: " + coldFieldIndex,
-				   coldFieldIndex >= 8 || coldFieldIndex == -1);
+				   coldFieldIndex >= 8);
 	}
 }
