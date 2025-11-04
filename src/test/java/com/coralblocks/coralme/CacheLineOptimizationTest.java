@@ -47,6 +47,12 @@ public class CacheLineOptimizationTest {
 	// Allow some margin for object header and alignment (12-16 bytes header + alignment)
 	private static final int CACHE_LINE_SIZE_WITH_MARGIN = 80;
 	
+	// Hot fields count for Order class (next, prev, totalSize, executedSize, price, id, clientId, side, type, tif)
+	private static final int ORDER_HOT_FIELDS_COUNT = 10;
+	
+	// Hot fields count for PriceLevel class (next, prev, head, tail, price, size, side, orders)
+	private static final int PRICE_LEVEL_HOT_FIELDS_COUNT = 8;
+	
 	/**
 	 * Hot fields in Order class that are accessed in the critical match/execute path:
 	 * - next, prev (linked list traversal)
@@ -182,9 +188,6 @@ public class CacheLineOptimizationTest {
 		
 		Field[] fields = Order.class.getDeclaredFields();
 		
-		// Expected hot fields count (must match testOrderHotFieldsAreFirst)
-		final int HOT_FIELDS_COUNT = 10; // next, prev, totalSize, executedSize, price, id, clientId, side, type, tif
-		
 		// Cold fields that should be positioned after hot fields (in actual order)
 		String[] coldFields = {
 			"listeners",
@@ -221,9 +224,9 @@ public class CacheLineOptimizationTest {
 		}
 		
 		// The first cold field should appear after all hot fields
-		assertTrue("Cold fields should be positioned after hot fields (index >= " + HOT_FIELDS_COUNT + "). " +
+		assertTrue("Cold fields should be positioned after hot fields (index >= " + ORDER_HOT_FIELDS_COUNT + "). " +
 				   "First cold field at index: " + firstColdFieldIndex,
-				   firstColdFieldIndex >= HOT_FIELDS_COUNT);
+				   firstColdFieldIndex >= ORDER_HOT_FIELDS_COUNT);
 	}
 	
 	/**
@@ -233,9 +236,6 @@ public class CacheLineOptimizationTest {
 	public void testPriceLevelColdFieldsAreLast() {
 		
 		Field[] fields = PriceLevel.class.getDeclaredFields();
-		
-		// Expected hot fields count (must match testPriceLevelHotFieldsAreFirst)
-		final int HOT_FIELDS_COUNT = 8; // next, prev, head, tail, price, size, side, orders
 		
 		// Cold field: security (rarely accessed, mainly for initialization)
 		String coldField = "security";
@@ -253,8 +253,8 @@ public class CacheLineOptimizationTest {
 		// Security field must exist and should be positioned after all hot fields
 		assertTrue("Cold field 'security' must exist in PriceLevel class",
 				   coldFieldIndex >= 0);
-		assertTrue("Cold field 'security' should be positioned after hot fields (index >= " + HOT_FIELDS_COUNT + "). " +
+		assertTrue("Cold field 'security' should be positioned after hot fields (index >= " + PRICE_LEVEL_HOT_FIELDS_COUNT + "). " +
 				   "Actual index: " + coldFieldIndex,
-				   coldFieldIndex >= HOT_FIELDS_COUNT);
+				   coldFieldIndex >= PRICE_LEVEL_HOT_FIELDS_COUNT);
 	}
 }
