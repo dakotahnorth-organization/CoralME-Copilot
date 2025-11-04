@@ -184,16 +184,6 @@ public class NoGCTest {
 		
 		for(int i = 1; i <= iterations; i++) {
 			
-			printIteration(i);
-			
-			// Track peak memory usage periodically (every 10000 iterations to minimize overhead)
-			if (i % 10000 == 0) {
-				long currentMemory = runtime.totalMemory() - runtime.freeMemory();
-				if (currentMemory > metrics.peakMemoryBytes) {
-					metrics.peakMemoryBytes = currentMemory;
-				}
-			}
-			
 			// Bids:
 			book.createLimit(CLIENT_ID, getClientOrderId(),  orderId++,  Side.BUY, 1000, 100.00, TimeInForce.DAY);
 			book.createLimit(CLIENT_ID, getClientOrderId(),  orderId++,  Side.BUY,  900,  99.00, TimeInForce.DAY);
@@ -267,5 +257,15 @@ public class NoGCTest {
 		String metricsData = metrics.toStorageFormat();
 		System.out.print("\n");
 		printWithoutGarbage(metricsData);
+	}
+
+	private static void trackPeakMemoryUsage(int i, Runtime runtime, PerformanceMetrics metrics) {
+		// Track peak memory usage periodically (every 10000 iterations to minimize overhead)
+		if (i % 10000 == 0) {
+			long currentMemory = runtime.totalMemory() - runtime.freeMemory();
+			if (currentMemory > metrics.peakMemoryBytes) {
+				metrics.peakMemoryBytes = currentMemory;
+			}
+		}
 	}
 }
