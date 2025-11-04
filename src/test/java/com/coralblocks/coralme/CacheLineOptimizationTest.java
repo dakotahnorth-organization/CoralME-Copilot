@@ -176,11 +176,13 @@ public class CacheLineOptimizationTest {
 		
 		Field[] fields = Order.class.getDeclaredFields();
 		
-		// Cold fields that should be positioned after hot fields
+		// Cold fields that should be positioned after hot fields (in actual order)
 		String[] coldFields = {
 			"listeners",
 			"clientOrderId",
+			"priceLevel",
 			"security",
+			"timestamper",
 			"originalSize",
 			"acceptTime",
 			"restTime",
@@ -188,7 +190,9 @@ public class CacheLineOptimizationTest {
 			"rejectTime",
 			"reduceTime",
 			"executeTime",
-			"timestamper"
+			"pendingSize",
+			"isResting",
+			"isPendingCancel"
 		};
 		
 		List<String> actualFields = new ArrayList<>();
