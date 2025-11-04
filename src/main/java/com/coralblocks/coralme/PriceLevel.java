@@ -22,23 +22,29 @@ import com.coralblocks.coralme.Order.Side;
 
 public class PriceLevel implements OrderListener {
     
-    private long price;
+	// ========== HOT FIELDS (First 64-byte cache line) ==========
+	// These fields are accessed in the critical match/execute path
     
-    private Side side;
+    PriceLevel next = null;
     
-    private String security;
-    
-    private long size;
-    
-    private int orders;
+    PriceLevel prev = null;
     
     private Order head = null;
     
     private Order tail = null;
     
-    PriceLevel next = null;
+    private long price;
     
-    PriceLevel prev = null;
+    private long size;
+    
+    private Side side;
+    
+    private int orders;
+	
+	// ========== COLD FIELDS (Subsequent cache lines) ==========
+	// These fields are rarely accessed or only during initialization
+    
+    private String security;
     
     PriceLevel() {
     	
