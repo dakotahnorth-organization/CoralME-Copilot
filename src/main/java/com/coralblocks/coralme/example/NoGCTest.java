@@ -151,6 +151,16 @@ public class NoGCTest {
 			printWithoutGarbage(sb);
 		}
 	}
+
+	private static void trackPeakMemoryUsage(int i, Runtime runtime, PerformanceMetrics metrics) {
+		// Track peak memory usage periodically (every 10000 iterations to minimize overhead)
+		if (i % 10000 == 0) {
+			long currentMemory = runtime.totalMemory() - runtime.freeMemory();
+			if (currentMemory > metrics.peakMemoryBytes) {
+				metrics.peakMemoryBytes = currentMemory;
+			}
+		}
+	}
 	
 	public static void main(String[] args) {
 		
@@ -259,13 +269,5 @@ public class NoGCTest {
 		printWithoutGarbage(metricsData);
 	}
 
-	private static void trackPeakMemoryUsage(int i, Runtime runtime, PerformanceMetrics metrics) {
-		// Track peak memory usage periodically (every 10000 iterations to minimize overhead)
-		if (i % 10000 == 0) {
-			long currentMemory = runtime.totalMemory() - runtime.freeMemory();
-			if (currentMemory > metrics.peakMemoryBytes) {
-				metrics.peakMemoryBytes = currentMemory;
-			}
-		}
-	}
+
 }
