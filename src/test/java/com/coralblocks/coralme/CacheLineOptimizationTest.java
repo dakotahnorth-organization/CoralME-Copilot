@@ -29,22 +29,37 @@ import org.junit.Test;
  * classes are positioned at the beginning of the class to fit within a single
  * 64-byte cache line, optimizing cache performance in the critical matching path.
  * 
- * A typical 64-bit JVM object layout:
- * - Object header: 12-16 bytes (12 bytes with compressed oops)
- * - Fields laid out in declaration order (with alignment)
- * - Reference fields: 4 bytes (compressed oops) or 8 bytes
+ * <h3>JVM Object Layout Assumptions</h3>
+ * A typical 64-bit JVM object layout with compressed oops (enabled by default up to 32GB heap):
+ * - Object header: 12 bytes (8-byte mark word + 4-byte class pointer)
+ * - Fields laid out primarily in declaration order (JVM may reorder for alignment)
+ * - Reference fields: 4 bytes (compressed oops) or 8 bytes (no compression)
  * - long/double: 8 bytes
  * - int/float: 4 bytes
- * - boolean: 1 byte (often padded)
+ * - boolean: 1 byte (often padded to 4 bytes for alignment)
  * 
- * For a 64-byte cache line, we want hot fields within ~48-52 bytes after header.
+ * <h3>Test Methodology</h3>
+ * These tests validate field declaration order, which strongly influences but does not
+ * guarantee final memory layout. The JVM may reorder fields for alignment and padding,
+ * but declaration order is the primary factor in field placement.
+ * 
+ * <h3>Cache Line Optimization Goals</h3>
+ * For a 64-byte cache line, we want hot fields within ~52 bytes (64 - 12 byte header).
+ * The margin of 80 bytes accounts for:
+ * - 12-16 byte object header (varies by JVM and configuration)
+ * - Up to 4 bytes padding for alignment
+ * - Potential field reordering by JVM for alignment
+ * 
+ * This ensures hot fields typically fit within a single cache line on modern CPUs.
  */
 public class CacheLineOptimizationTest {
 	
-	// Standard 64-byte cache line size
+	// Standard 64-byte cache line size on most modern CPUs
 	private static final int CACHE_LINE_SIZE = 64;
 	
-	// Allow some margin for object header and alignment (12-16 bytes header + alignment)
+	// Allow margin for object header (12-16 bytes) and alignment (up to 8 bytes)
+	// This accounts for JVM field reordering and padding while keeping hot fields
+	// within a single cache line in typical configurations
 	private static final int CACHE_LINE_SIZE_WITH_MARGIN = 80;
 	
 	// Hot fields count for Order class (next, prev, totalSize, executedSize, price, id, clientId, side, type, tif)
@@ -98,18 +113,20 @@ public class CacheLineOptimizationTest {
 		}
 		
 		// Calculate approximate size of hot fields
-		// This is a rough estimate assuming compressed oops (4-byte refs, 8-byte longs)
+		// NOTE: This is a conservative estimate based on current field types.
+		// Assumptions: compressed oops (4-byte refs), no padding between fields
+		// If field types change, this calculation must be updated accordingly
 		int estimatedSize = 0;
-		estimatedSize += 4; // next reference
-		estimatedSize += 4; // prev reference
-		estimatedSize += 8; // totalSize long
-		estimatedSize += 8; // executedSize long
-		estimatedSize += 8; // price long
-		estimatedSize += 8; // id long
-		estimatedSize += 8; // clientId long
-		estimatedSize += 4; // side reference
-		estimatedSize += 4; // type reference
-		estimatedSize += 4; // tif reference
+		estimatedSize += 4; // next - Order reference
+		estimatedSize += 4; // prev - Order reference
+		estimatedSize += 8; // totalSize - long
+		estimatedSize += 8; // executedSize - long
+		estimatedSize += 8; // price - long
+		estimatedSize += 8; // id - long
+		estimatedSize += 8; // clientId - long
+		estimatedSize += 4; // side - Side enum reference
+		estimatedSize += 4; // type - Type enum reference
+		estimatedSize += 4; // tif - TimeInForce enum reference
 		// Total: 60 bytes + 12-byte header = 72 bytes
 		
 		// With 12-byte header and 60 bytes of hot fields, we're close to 64-byte cache line
@@ -163,16 +180,18 @@ public class CacheLineOptimizationTest {
 		}
 		
 		// Calculate approximate size of hot fields
-		// This is a rough estimate assuming compressed oops (4-byte refs, 8-byte longs)
+		// NOTE: This is a conservative estimate based on current field types.
+		// Assumptions: compressed oops (4-byte refs), no padding between fields
+		// If field types change, this calculation must be updated accordingly
 		int estimatedSize = 0;
-		estimatedSize += 4; // next reference
-		estimatedSize += 4; // prev reference
-		estimatedSize += 4; // head reference
-		estimatedSize += 4; // tail reference
-		estimatedSize += 8; // price long
-		estimatedSize += 8; // size long
-		estimatedSize += 4; // side reference
-		estimatedSize += 4; // orders int
+		estimatedSize += 4; // next - PriceLevel reference
+		estimatedSize += 4; // prev - PriceLevel reference
+		estimatedSize += 4; // head - Order reference
+		estimatedSize += 4; // tail - Order reference
+		estimatedSize += 8; // price - long
+		estimatedSize += 8; // size - long
+		estimatedSize += 4; // side - Side enum reference
+		estimatedSize += 4; // orders - int
 		// Total: 40 bytes + 12-byte header = 52 bytes
 		
 		assertTrue("Hot fields should fit within 64-byte cache line including object header. " +
