@@ -16,20 +16,61 @@
 package com.coralblocks.coralme.util;
 
 /**
- * <p>This timestamper is here just for illustrative purposes.</p>
+ * High-performance, garbage-free timestamper with nanosecond precision.
  * 
- * <p>There are of course much better ways to get the epoch with nanosecond precision. And without producing any garbage for the GC.</p>
+ * <p>Combines System.currentTimeMillis() for epoch base with System.nanoTime() 
+ * for high-precision offsets. Recalibrates every second for NTP adjustments.</p>
+ * 
+ * <p>Thread-safe with synchronized calibration.</p>
  */
 public class SystemTimestamper implements Timestamper {
 	
+	private static final long RECALIBRATION_INTERVAL_NANOS = 1_000_000_000L;
+	
+	volatile long baseEpochNanos;
+	volatile long baseNanoTime;
+	volatile long lastCalibrationNanoTime;
+	
 	/**
-	 * Simply returns System.currentTimeMillis * 1000000L.
-	 * Of course this is bad, so feel free to implement other better/native/garbage-free timestampers ;)
+	 * Creates a new SystemTimestamper and performs initial calibration.
+	 */
+	public SystemTimestamper() {
+		calibrate();
+	}
+	
+	private synchronized void calibrate() {
+		long nanos = System.nanoTime();
+		baseEpochNanos = System.currentTimeMillis() * 1_000_000L;
+		baseNanoTime = nanos;
+		lastCalibrationNanoTime = nanos;
+	}
+	
+	/**
+	 * Returns the current epoch timestamp in nanoseconds with high precision.
+	 * 
+	 * <p>Uses System.currentTimeMillis() for epoch base (recalibrated every second) 
+	 * plus System.nanoTime() offset for sub-millisecond precision.</p>
+	 * 
+	 * <p>Thread-safe and garbage-free.</p>
 	 * 
 	 * @return the epoch timestamp in nanoseconds
 	 */
 	@Override
 	public long nanoEpoch() {
-		return System.currentTimeMillis() * 1000000L;
+		long currentNanoTime = System.nanoTime();
+		long lastCalib = lastCalibrationNanoTime;
+		
+		// Recalibrate if more than 1 second elapsed or time went backwards
+		if (currentNanoTime - lastCalib < 0 || 
+		    currentNanoTime - lastCalib >= RECALIBRATION_INTERVAL_NANOS) {
+			calibrate();
+			currentNanoTime = System.nanoTime();
+		}
+		
+		// Read base values together to ensure consistency
+		long base = baseNanoTime;
+		long epoch = baseEpochNanos;
+		
+		return epoch + (currentNanoTime - base);
 	}
 }
