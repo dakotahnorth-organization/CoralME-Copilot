@@ -58,14 +58,19 @@ public class SystemTimestamper implements Timestamper {
 	@Override
 	public long nanoEpoch() {
 		long currentNanoTime = System.nanoTime();
+		long lastCalib = lastCalibrationNanoTime;
 		
 		// Recalibrate if more than 1 second elapsed or time went backwards
-		if (currentNanoTime - lastCalibrationNanoTime < 0 || 
-		    currentNanoTime - lastCalibrationNanoTime >= RECALIBRATION_INTERVAL_NANOS) {
+		if (currentNanoTime - lastCalib < 0 || 
+		    currentNanoTime - lastCalib >= RECALIBRATION_INTERVAL_NANOS) {
 			calibrate();
 			currentNanoTime = System.nanoTime();
 		}
 		
-		return baseEpochNanos + (currentNanoTime - baseNanoTime);
+		// Read base values together to ensure consistency
+		long base = baseNanoTime;
+		long epoch = baseEpochNanos;
+		
+		return epoch + (currentNanoTime - base);
 	}
 }
