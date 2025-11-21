@@ -87,15 +87,22 @@ public class SystemTimestamper implements Timestamper {
 		long base = baseNanoTime;
 		long currentNanoTime = System.nanoTime();
 		
-		// Check if we need to recalibrate (handle potential overflow of nanoTime)
+		// Check if we need to recalibrate
 		// Read lastCalibrationNanoTime once to avoid race condition
 		long lastCalib = lastCalibrationNanoTime;
 		long nanosSinceCalibration = currentNanoTime - lastCalib;
+		
+		// Recalibrate if: 
+		// 1. Time went backwards (system time adjustment or nanoTime wrap - extremely rare)
+		// 2. More than 1 second has elapsed since last calibration
+		// Note: nanoTime wrap takes ~292 years, but we handle it defensively
 		if (nanosSinceCalibration < 0 || nanosSinceCalibration >= RECALIBRATION_INTERVAL_NANOS) {
 			calibrate();
 			// Re-read all values after recalibration for consistency
+			// Using the newly calibrated base ensures accurate timestamps
 			epoch = baseEpochNanos;
 			base = baseNanoTime;
+			// Use current nanoTime as the reference point for this timestamp
 			currentNanoTime = System.nanoTime();
 		}
 		

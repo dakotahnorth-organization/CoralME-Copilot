@@ -21,6 +21,8 @@ import org.junit.Test;
 public class SystemTimestamperTest {
 	
 	private static final long NANOS_PER_MILLI = 1_000_000L;
+	private static final long TEN_MILLIS_NANOS = 10L * NANOS_PER_MILLI;
+	private static final long TEN_SECONDS_NANOS = 10_000L * NANOS_PER_MILLI;
 	
 	@Test
 	public void testBasicTimestampProgression() {
@@ -129,8 +131,7 @@ public class SystemTimestamperTest {
 		
 		// Both should give similar timestamps (within a few milliseconds)
 		long diff = Math.abs(ts1 - ts2);
-		long tenMillisNanos = 10L * NANOS_PER_MILLI;
-		Assert.assertTrue("Timestamps from different instances should be similar", diff < tenMillisNanos);
+		Assert.assertTrue("Timestamps from different instances should be similar", diff < TEN_MILLIS_NANOS);
 	}
 	
 	@Test
@@ -172,7 +173,7 @@ public class SystemTimestamperTest {
 		
 		// All timestamps should be within a reasonable time window (a few seconds max)
 		long spanNanos = maxTimestamp - minTimestamp;
-		Assert.assertTrue("Timestamp span should be reasonable", spanNanos < 10_000_000_000L); // 10 seconds
+		Assert.assertTrue("Timestamp span should be reasonable", spanNanos < TEN_SECONDS_NANOS);
 		
 		// Verify each thread's timestamps are monotonic
 		for (int i = 0; i < numThreads; i++) {
