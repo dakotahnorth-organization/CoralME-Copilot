@@ -129,4 +129,54 @@ public class SystemTimestamperTest {
 		long diff = Math.abs(ts1 - ts2);
 		Assert.assertTrue("Timestamps from different instances should be similar", diff < 10000000L); // 10ms
 	}
+	
+	@Test
+	public void testThreadSafety() throws InterruptedException {
+		final Timestamper t = new SystemTimestamper();
+		final int numThreads = 10;
+		final int iterationsPerThread = 10000;
+		final Thread[] threads = new Thread[numThreads];
+		final long[][] results = new long[numThreads][iterationsPerThread];
+		
+		// Start multiple threads calling nanoEpoch concurrently
+		for (int i = 0; i < numThreads; i++) {
+			final int threadIndex = i;
+			threads[i] = new Thread(() -> {
+				for (int j = 0; j < iterationsPerThread; j++) {
+					results[threadIndex][j] = t.nanoEpoch();
+				}
+			});
+			threads[i].start();
+		}
+		
+		// Wait for all threads to complete
+		for (Thread thread : threads) {
+			thread.join();
+		}
+		
+		// Verify all timestamps are valid and reasonable
+		long minTimestamp = Long.MAX_VALUE;
+		long maxTimestamp = Long.MIN_VALUE;
+		
+		for (int i = 0; i < numThreads; i++) {
+			for (int j = 0; j < iterationsPerThread; j++) {
+				long ts = results[i][j];
+				Assert.assertTrue("Timestamp should be positive", ts > 0);
+				if (ts < minTimestamp) minTimestamp = ts;
+				if (ts > maxTimestamp) maxTimestamp = ts;
+			}
+		}
+		
+		// All timestamps should be within a reasonable time window (a few seconds max)
+		long spanNanos = maxTimestamp - minTimestamp;
+		Assert.assertTrue("Timestamp span should be reasonable", spanNanos < 10_000_000_000L); // 10 seconds
+		
+		// Verify each thread's timestamps are monotonic
+		for (int i = 0; i < numThreads; i++) {
+			for (int j = 1; j < iterationsPerThread; j++) {
+				Assert.assertTrue("Timestamps within same thread should be monotonic", 
+					results[i][j] >= results[i][j-1]);
+			}
+		}
+	}
 }

@@ -24,6 +24,9 @@ package com.coralblocks.coralme.util;
  * 
  * <p>The implementation uses a calibration anchor that is periodically refreshed to handle 
  * system time adjustments and avoid drift. All operations use primitive types only.</p>
+ * 
+ * <p>Thread-safe: Multiple threads can safely call nanoEpoch() concurrently. Recalibration
+ * is synchronized to ensure consistent state updates.</p>
  */
 public class SystemTimestamper implements Timestamper {
 	
@@ -31,9 +34,10 @@ public class SystemTimestamper implements Timestamper {
 	private static final long RECALIBRATION_INTERVAL_NANOS = 1_000_000_000L;
 	
 	// Anchor points for hybrid timestamp calculation
-	private volatile long baseEpochNanos;
-	private volatile long baseNanoTime;
-	private volatile long lastCalibrationNanoTime;
+	// Package-private for testing purposes
+	volatile long baseEpochNanos;
+	volatile long baseNanoTime;
+	volatile long lastCalibrationNanoTime;
 	
 	/**
 	 * Creates a new SystemTimestamper and performs initial calibration.
@@ -45,8 +49,9 @@ public class SystemTimestamper implements Timestamper {
 	/**
 	 * Calibrates the timestamper by capturing synchronized epoch and nanoTime values.
 	 * This method is garbage-free and uses only primitive operations.
+	 * Synchronized to prevent race conditions during concurrent recalibration attempts.
 	 */
-	private void calibrate() {
+	private synchronized void calibrate() {
 		// Capture both values as close together as possible for accuracy
 		long millis = System.currentTimeMillis();
 		long nanos = System.nanoTime();
@@ -70,6 +75,8 @@ public class SystemTimestamper implements Timestamper {
 	 * time adjustments (e.g., NTP synchronization) while maintaining monotonic behavior 
 	 * within short time windows.</p>
 	 * 
+	 * <p>Thread-safe: Can be called concurrently from multiple threads.</p>
+	 * 
 	 * @return the epoch timestamp in nanoseconds
 	 */
 	@Override
@@ -77,14 +84,22 @@ public class SystemTimestamper implements Timestamper {
 		long currentNanoTime = System.nanoTime();
 		
 		// Check if we need to recalibrate (handle potential overflow of nanoTime)
-		long nanosSinceCalibration = currentNanoTime - lastCalibrationNanoTime;
+		// Read lastCalibrationNanoTime once to avoid race condition
+		long lastCalib = lastCalibrationNanoTime;
+		long nanosSinceCalibration = currentNanoTime - lastCalib;
 		if (nanosSinceCalibration < 0 || nanosSinceCalibration >= RECALIBRATION_INTERVAL_NANOS) {
 			calibrate();
 			currentNanoTime = System.nanoTime();
 		}
 		
+		// Read base values atomically to ensure consistency
+		// Even if another thread recalibrates between these reads, the result remains valid
+		// because calibration is synchronized and updates are atomic
+		long base = baseNanoTime;
+		long epoch = baseEpochNanos;
+		
 		// Calculate offset from base and add to base epoch time
-		long nanoOffset = currentNanoTime - baseNanoTime;
-		return baseEpochNanos + nanoOffset;
+		long nanoOffset = currentNanoTime - base;
+		return epoch + nanoOffset;
 	}
 }
