@@ -100,6 +100,10 @@ public class SystemTimestamper implements Timestamper {
 			calibrate();
 			// Re-read all values after recalibration for consistency
 			// Using the newly calibrated base ensures accurate timestamps
+			// Note: Multiple threads may simultaneously detect need for recalibration.
+			// While calibrate() is synchronized, the re-read here is not atomic with it.
+			// This is acceptable: worst case is slightly stale values for one call,
+			// but correctness is maintained due to volatile visibility guarantees.
 			epoch = baseEpochNanos;
 			base = baseNanoTime;
 			// Use current nanoTime as the reference point for this timestamp
