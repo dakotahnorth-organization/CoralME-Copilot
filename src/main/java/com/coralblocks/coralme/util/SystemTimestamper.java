@@ -34,10 +34,10 @@ public class SystemTimestamper implements Timestamper {
 	private static final long RECALIBRATION_INTERVAL_NANOS = 1_000_000_000L;
 	
 	// Anchor points for hybrid timestamp calculation
-	// Package-private for testing purposes
-	volatile long baseEpochNanos;
-	volatile long baseNanoTime;
-	volatile long lastCalibrationNanoTime;
+	// All fields are package-private for testing purposes
+	volatile long baseEpochNanos;       // Epoch time in nanoseconds at calibration
+	volatile long baseNanoTime;         // System.nanoTime() value at calibration
+	volatile long lastCalibrationNanoTime;  // Last calibration time for recalibration check
 	
 	/**
 	 * Creates a new SystemTimestamper and performs initial calibration.
