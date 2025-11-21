@@ -81,6 +81,10 @@ public class SystemTimestamper implements Timestamper {
 	 */
 	@Override
 	public long nanoEpoch() {
+		// Read base values first to maintain consistency
+		// Reading epoch before base ensures they are from the same calibration cycle
+		long epoch = baseEpochNanos;
+		long base = baseNanoTime;
 		long currentNanoTime = System.nanoTime();
 		
 		// Check if we need to recalibrate (handle potential overflow of nanoTime)
@@ -89,14 +93,11 @@ public class SystemTimestamper implements Timestamper {
 		long nanosSinceCalibration = currentNanoTime - lastCalib;
 		if (nanosSinceCalibration < 0 || nanosSinceCalibration >= RECALIBRATION_INTERVAL_NANOS) {
 			calibrate();
+			// Re-read all values after recalibration for consistency
+			epoch = baseEpochNanos;
+			base = baseNanoTime;
 			currentNanoTime = System.nanoTime();
 		}
-		
-		// Read base values atomically to ensure consistency
-		// Even if another thread recalibrates between these reads, the result remains valid
-		// because calibration is synchronized and updates are atomic
-		long base = baseNanoTime;
-		long epoch = baseEpochNanos;
 		
 		// Calculate offset from base and add to base epoch time
 		long nanoOffset = currentNanoTime - base;

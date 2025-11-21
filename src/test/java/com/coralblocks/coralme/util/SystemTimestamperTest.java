@@ -20,6 +20,8 @@ import org.junit.Test;
 
 public class SystemTimestamperTest {
 	
+	private static final long NANOS_PER_MILLI = 1_000_000L;
+	
 	@Test
 	public void testBasicTimestampProgression() {
 		Timestamper t = new SystemTimestamper();
@@ -35,7 +37,7 @@ public class SystemTimestamperTest {
 		long end = t.nanoEpoch();
 		
 		Assert.assertTrue("End timestamp should be greater than start", end > start);
-		Assert.assertTrue("Difference should be at least 1ms (1000000ns)", end - start > 1000000L);
+		Assert.assertTrue("Difference should be at least 1ms", end - start > NANOS_PER_MILLI);
 	}
 	
 	@Test
@@ -63,7 +65,7 @@ public class SystemTimestamperTest {
 		long diff = t2 - t1;
 		Assert.assertTrue("Difference should be positive", diff >= 0);
 		// The difference should be small (less than 1ms for two immediate calls)
-		Assert.assertTrue("Difference should be sub-millisecond for rapid calls", diff < 1000000L);
+		Assert.assertTrue("Difference should be sub-millisecond for rapid calls", diff < NANOS_PER_MILLI);
 	}
 	
 	@Test
@@ -73,7 +75,7 @@ public class SystemTimestamperTest {
 		long timestamp = t.nanoEpoch();
 		
 		// Convert to milliseconds for comparison with System.currentTimeMillis()
-		long timestampMillis = timestamp / 1000000L;
+		long timestampMillis = timestamp / NANOS_PER_MILLI;
 		long systemMillis = System.currentTimeMillis();
 		
 		// Should be within 1 second of each other
@@ -97,8 +99,8 @@ public class SystemTimestamperTest {
 		
 		// Verify the difference is approximately 1.1 seconds (with some tolerance)
 		long diffNanos = t2 - t1;
-		long expectedNanos = 1100L * 1000000L;
-		long tolerance = 100L * 1000000L; // 100ms tolerance
+		long expectedNanos = 1100L * NANOS_PER_MILLI;
+		long tolerance = 100L * NANOS_PER_MILLI; // 100ms tolerance
 		Assert.assertTrue("Time difference should be approximately 1.1 seconds", 
 			Math.abs(diffNanos - expectedNanos) < tolerance);
 	}
@@ -127,7 +129,8 @@ public class SystemTimestamperTest {
 		
 		// Both should give similar timestamps (within a few milliseconds)
 		long diff = Math.abs(ts1 - ts2);
-		Assert.assertTrue("Timestamps from different instances should be similar", diff < 10000000L); // 10ms
+		long tenMillisNanos = 10L * NANOS_PER_MILLI;
+		Assert.assertTrue("Timestamps from different instances should be similar", diff < tenMillisNanos);
 	}
 	
 	@Test
