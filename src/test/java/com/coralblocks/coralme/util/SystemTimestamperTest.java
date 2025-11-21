@@ -21,8 +21,7 @@ import org.junit.Test;
 public class SystemTimestamperTest {
 	
 	@Test
-	public void test1() {
-		
+	public void testBasicTimestampProgression() {
 		Timestamper t = new SystemTimestamper();
 		
 		long start = t.nanoEpoch();
@@ -35,7 +34,99 @@ public class SystemTimestamperTest {
 		
 		long end = t.nanoEpoch();
 		
-		Assert.assertTrue(end > start);
-		Assert.assertTrue(end - start > 1000000L);
+		Assert.assertTrue("End timestamp should be greater than start", end > start);
+		Assert.assertTrue("Difference should be at least 1ms (1000000ns)", end - start > 1000000L);
+	}
+	
+	@Test
+	public void testMonotonicBehavior() {
+		Timestamper t = new SystemTimestamper();
+		
+		// Take multiple rapid timestamps and verify they are monotonically increasing
+		long prev = t.nanoEpoch();
+		for (int i = 0; i < 1000; i++) {
+			long current = t.nanoEpoch();
+			Assert.assertTrue("Timestamps should be monotonically increasing", current >= prev);
+			prev = current;
+		}
+	}
+	
+	@Test
+	public void testPrecisionBetterThanMillisecond() {
+		Timestamper t = new SystemTimestamper();
+		
+		// Take two timestamps in rapid succession
+		long t1 = t.nanoEpoch();
+		long t2 = t.nanoEpoch();
+		
+		// The difference should be measurable in nanoseconds (typically < 1ms)
+		long diff = t2 - t1;
+		Assert.assertTrue("Difference should be positive", diff >= 0);
+		// The difference should be small (less than 1ms for two immediate calls)
+		Assert.assertTrue("Difference should be sub-millisecond for rapid calls", diff < 1000000L);
+	}
+	
+	@Test
+	public void testEpochTimeReasonable() {
+		Timestamper t = new SystemTimestamper();
+		
+		long timestamp = t.nanoEpoch();
+		
+		// Convert to milliseconds for comparison with System.currentTimeMillis()
+		long timestampMillis = timestamp / 1000000L;
+		long systemMillis = System.currentTimeMillis();
+		
+		// Should be within 1 second of each other
+		long diff = Math.abs(timestampMillis - systemMillis);
+		Assert.assertTrue("Epoch time should be close to System.currentTimeMillis()", diff < 1000);
+	}
+	
+	@Test
+	public void testRecalibration() throws InterruptedException {
+		Timestamper t = new SystemTimestamper();
+		
+		long t1 = t.nanoEpoch();
+		
+		// Sleep for more than the recalibration interval (1 second)
+		Thread.sleep(1100);
+		
+		long t2 = t.nanoEpoch();
+		
+		// Verify timestamps still progress correctly after recalibration
+		Assert.assertTrue("Timestamp after recalibration should be greater", t2 > t1);
+		
+		// Verify the difference is approximately 1.1 seconds (with some tolerance)
+		long diffNanos = t2 - t1;
+		long expectedNanos = 1100L * 1000000L;
+		long tolerance = 100L * 1000000L; // 100ms tolerance
+		Assert.assertTrue("Time difference should be approximately 1.1 seconds", 
+			Math.abs(diffNanos - expectedNanos) < tolerance);
+	}
+	
+	@Test
+	public void testZeroGarbageBehavior() {
+		// This test verifies that calling nanoEpoch many times doesn't cause issues
+		// Actual zero-garbage verification is done by NoGCTest
+		Timestamper t = new SystemTimestamper();
+		
+		// Call many times to ensure no accumulation issues
+		for (int i = 0; i < 100000; i++) {
+			long timestamp = t.nanoEpoch();
+			Assert.assertTrue("Timestamp should be positive", timestamp > 0);
+		}
+	}
+	
+	@Test
+	public void testMultipleInstances() {
+		// Verify that multiple timestamper instances work correctly
+		Timestamper t1 = new SystemTimestamper();
+		Timestamper t2 = new SystemTimestamper();
+		
+		long ts1 = t1.nanoEpoch();
+		long ts2 = t2.nanoEpoch();
+		
+		// Both should give similar timestamps (within a few milliseconds)
+		long diff = Math.abs(ts1 - ts2);
+		Assert.assertTrue("Timestamps from different instances should be similar", diff < 10000000L); // 10ms
 	}
 }

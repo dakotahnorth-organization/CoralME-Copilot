@@ -16,20 +16,75 @@
 package com.coralblocks.coralme.util;
 
 /**
- * <p>This timestamper is here just for illustrative purposes.</p>
+ * <p>High-performance, garbage-free timestamper using a hybrid approach for nanosecond precision.</p>
  * 
- * <p>There are of course much better ways to get the epoch with nanosecond precision. And without producing any garbage for the GC.</p>
+ * <p>This implementation combines System.currentTimeMillis() for epoch base time with 
+ * System.nanoTime() for high-precision offsets, providing better-than-millisecond precision 
+ * while maintaining zero garbage generation.</p>
+ * 
+ * <p>The implementation uses a calibration anchor that is periodically refreshed to handle 
+ * system time adjustments and avoid drift. All operations use primitive types only.</p>
  */
 public class SystemTimestamper implements Timestamper {
 	
+	// Calibration interval: recalibrate every 1 second to handle system time adjustments
+	private static final long RECALIBRATION_INTERVAL_NANOS = 1_000_000_000L;
+	
+	// Anchor points for hybrid timestamp calculation
+	private volatile long baseEpochNanos;
+	private volatile long baseNanoTime;
+	private volatile long lastCalibrationNanoTime;
+	
 	/**
-	 * Simply returns System.currentTimeMillis * 1000000L.
-	 * Of course this is bad, so feel free to implement other better/native/garbage-free timestampers ;)
+	 * Creates a new SystemTimestamper and performs initial calibration.
+	 */
+	public SystemTimestamper() {
+		calibrate();
+	}
+	
+	/**
+	 * Calibrates the timestamper by capturing synchronized epoch and nanoTime values.
+	 * This method is garbage-free and uses only primitive operations.
+	 */
+	private void calibrate() {
+		// Capture both values as close together as possible for accuracy
+		long millis = System.currentTimeMillis();
+		long nanos = System.nanoTime();
+		
+		// Convert milliseconds to nanoseconds for the epoch base
+		baseEpochNanos = millis * 1_000_000L;
+		baseNanoTime = nanos;
+		lastCalibrationNanoTime = nanos;
+	}
+	
+	/**
+	 * Returns the current epoch timestamp in nanoseconds with high precision.
+	 * 
+	 * <p>This method is garbage-free and uses a hybrid approach:</p>
+	 * <ul>
+	 * <li>Uses System.currentTimeMillis() as the epoch base (recalibrated periodically)</li>
+	 * <li>Uses System.nanoTime() offset for high-precision sub-millisecond accuracy</li>
+	 * </ul>
+	 * 
+	 * <p>The implementation automatically recalibrates every second to handle system 
+	 * time adjustments (e.g., NTP synchronization) while maintaining monotonic behavior 
+	 * within short time windows.</p>
 	 * 
 	 * @return the epoch timestamp in nanoseconds
 	 */
 	@Override
 	public long nanoEpoch() {
-		return System.currentTimeMillis() * 1000000L;
+		long currentNanoTime = System.nanoTime();
+		
+		// Check if we need to recalibrate (handle potential overflow of nanoTime)
+		long nanosSinceCalibration = currentNanoTime - lastCalibrationNanoTime;
+		if (nanosSinceCalibration < 0 || nanosSinceCalibration >= RECALIBRATION_INTERVAL_NANOS) {
+			calibrate();
+			currentNanoTime = System.nanoTime();
+		}
+		
+		// Calculate offset from base and add to base epoch time
+		long nanoOffset = currentNanoTime - baseNanoTime;
+		return baseEpochNanos + nanoOffset;
 	}
 }
