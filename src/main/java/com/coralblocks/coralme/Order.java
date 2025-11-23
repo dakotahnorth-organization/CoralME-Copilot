@@ -30,23 +30,43 @@ public class Order {
 	
 	public static final int CLIENT_ORDER_ID_MAX_LENGTH = 64;
 	
-    private final List<OrderListener> listeners = new ArrayList<OrderListener>(64);
+	// ========== HOT FIELDS (First 64-byte cache line) ==========
+	// These fields are accessed in the critical match/execute path
+	
+	Order next = null;
     
-    private Side side;
-    
-    private long originalSize;
+    Order prev = null;
     
     private long totalSize;
     
     private long executedSize;
     
-    private PriceLevel priceLevel;
+    private long price;
+    
+    private long id;
     
     private long clientId;
     
+    private Side side;
+    
+    private Type type;
+    
+    private TimeInForce tif;
+	
+	// ========== COLD FIELDS (Subsequent cache lines) ==========
+	// These fields are rarely accessed or only during initialization/lifecycle events
+    
+    private final List<OrderListener> listeners = new ArrayList<OrderListener>(64);
+    
     private final StringBuilder clientOrderId = new StringBuilder(CLIENT_ORDER_ID_MAX_LENGTH);
     
-    private long price;
+    private PriceLevel priceLevel;
+    
+    private String security;
+    
+    private Timestamper timestamper;
+    
+    private long originalSize;
     
     private long acceptTime;
     
@@ -60,25 +80,11 @@ public class Order {
     
     private long executeTime;
     
-    private long id;
-    
-    private String security;
-    
-    private TimeInForce tif;
-    
-    private Type type;
-    
-    Order next = null;
-    
-    Order prev = null;
+    private long pendingSize;
     
     private boolean isResting;
     
     private boolean isPendingCancel;
-    
-    private long pendingSize;
-    
-    private Timestamper timestamper;
     
     public Order() {
     	
